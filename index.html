@@ -85,7 +85,7 @@
     .sparkles{position:fixed; inset:0; pointer-events:none}
     .spark{position:absolute; width:8px; height:8px; border-radius:50%; opacity:0.9}
 
-    footer{padding:18px; text-align:center; color:var(--muted); font-size:13px}
+    footer{padding:18px; text-align:center; color:#6b6b6b; font-size:13px}
   </style>
   <!-- Firebase compat SDKs for simplicity in single-file deployment -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -203,8 +203,11 @@
 
     // ====== Utility helpers ======
     const $ = (id) => document.getElementById(id);
-    const toHTML = (text='') => text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/
-/g,'<br>');
+    const toHTML = (text='') => text
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br>'); // ✅ correct newline regex
+
     function hideLoader(){ const ld = $('loader'); if(!ld) return; ld.classList.add('fade-out'); ld.addEventListener('animationend', ()=> ld.remove()); }
     setTimeout(hideLoader, 1200);
     function burstSparkles(xPct,yPct){ const c = $('sparkles'); for(let i=0;i<16;i++){ const s = document.createElement('div'); s.className='spark'; s.style.left=(xPct+(Math.random()*8-4))+'%'; s.style.top=(yPct+(Math.random()*6-3))+'%'; s.style.background=['#FFD1BF','#FFC0D6','#BFE9FF','#FFF7EE'][Math.floor(Math.random()*4)]; c.appendChild(s); const dur=900+Math.random()*700; s.animate([{transform:'translateY(0) scale(1)',opacity:1},{transform:'translateY(-60px) scale(.6)',opacity:0}],{duration:dur,easing:'cubic-bezier(.2,.7,.2,1)'}); setTimeout(()=>s.remove(), dur+40);} }
@@ -313,9 +316,10 @@
     // ====== Diagnostics ======
     function selfTest(){
       const results=[];
-      results.push(['regex newline replace', (()=>{try{return 'a
- b'.replace(/
-/g,'<br>').includes('<br>')}catch{return false}})()]);
+      // ✅ fixed regex tests
+      const sample = 'a\n b';
+      results.push(['regex newline replace', sample.replace(/\n/g,'<br>').includes('<br>')]);
+      results.push(['toHTML escapes < and >', toHTML('<b>hi</b>').includes('&lt;b&gt;')]);
       results.push(['datesGrid exists', !!$('datesGrid')]);
       results.push(['bucketList exists', !!$('bucketList')]);
       results.push(['photoGrid exists', !!$('photoGrid')]);
@@ -325,3 +329,4 @@
   </script>
 </body>
 </html>
+
