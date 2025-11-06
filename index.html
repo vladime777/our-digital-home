@@ -102,7 +102,6 @@
       <h2>Enter Passcode 💖</h2>
       <input type="password" id="passInput" maxlength="6" placeholder="••••••" />
       <div><button id="unlockBtn">Unlock</button></div>
-      <div style="font-size:12px;color:#666;margin-top:8px">Tip: share only with Thanya 💝</div>
     </div>
   </div>
 
@@ -159,6 +158,7 @@
           <option value="Thanya">Thanya</option>
         </select>
         <button id="uploadBtn" class="sm-btn">Upload</button>
+        <button id="clearPhotosBtn" class="sm-btn">Clear Photos</button>
       </div>
       <div class="photo-grid" id="photoGrid"></div>
     </section>
@@ -195,7 +195,7 @@
   </main>
 
   <div class="music-toggle" id="musicToggle" title="Play / Pause music">🎵</div>
-  <footer>Made with 💖 for Thanya & Vishnukeerthy — Passcode • Realtime DB • Polaroids</footer>
+  <footer>Made with 💖 for Thanya</footer>
 
   <script>
     // ====== Constants ======
@@ -289,7 +289,16 @@
           [{x:14,y:-8,r:-8},{x:60,y:-10,r:8},{x:40,y:-10,r:2}].forEach(t=>{ const tp=document.createElement('div'); tp.className='tape'; tp.style.left=t.x+'px'; tp.style.top=t.y+'px'; tp.style.setProperty('--trot', t.r+'deg'); wrap.appendChild(tp); }); const stickers=['✨','💘','⭐','💖','🌸','🩷','💫']; const sk=document.createElement('div'); sk.className='sticker'; sk.textContent=stickers[Math.floor(Math.random()*stickers.length)]; sk.style.left=randomBetween(8,70)+'%'; sk.style.top=randomBetween(6,20)+'%'; wrap.appendChild(sk); const imgw=document.createElement('div'); imgw.className='imgwrap'; const img=new Image(); img.src=item.data; img.alt=item.caption||'Our photo'; imgw.appendChild(img); wrap.appendChild(imgw); const cap=document.createElement('div'); cap.className='caption'; cap.textContent=item.caption||''; wrap.appendChild(cap); const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${item.author||''} • ${new Date(item.time||Date.now()).toLocaleDateString()}`; wrap.appendChild(meta); if(item.uid===UID){ const actions=document.createElement('div'); actions.className='actions'; const del=document.createElement('button'); del.className='sm-btn'; del.textContent='Delete'; del.addEventListener('click',()=>{ if(confirm('Delete this photo?')) db.ref(`${PATH.gallery}/${item.id}`).remove(); }); actions.appendChild(del); wrap.appendChild(actions);} wrap.style.opacity='0'; wrap.style.transform=`rotate(${rot}) scale(.98)`; requestAnimationFrame(()=>{ wrap.style.transition='transform .35s ease, opacity .35s ease, box-shadow .35s ease'; wrap.style.opacity='1'; wrap.style.transform=`rotate(${rot}) scale(1)`; }); return wrap; }
         function handleUpload(){ const file=$('photoFile').files[0]; if(!file) return alert('Pick a photo'); const caption=$('photoCaption').value.trim(); const author=$('photoAuthor').value || 'Vishnu'; const reader=new FileReader(); reader.onload=()=>{ const base64=reader.result; const id=db.ref(PATH.gallery).push().key; db.ref(`${PATH.gallery}/${id}`).set({ id, data:base64, caption, author, uid:UID, time:Date.now() }); $('photoFile').value=''; $('photoCaption').value=''; }; reader.readAsDataURL(file); }
         $('uploadBtn').addEventListener('click', handleUpload);
-        db.ref(PATH.gallery).on('value',snap=>{ const grid=$('photoGrid'); grid.innerHTML=''; const items=Object.entries(snap.val()||{}).map(([id,it])=>({id,...it})).sort((a,b)=> (b.time||0)-(a.time||0)); items.forEach(it=> grid.appendChild(polaroidNode(it))); });
+        db.ref(PATH.gallery).on('value',snap=>{
+          const grid=$('photoGrid');
+          grid.innerHTML='';
+          const items=Object.entries(snap.val()||{}).map(([id,it])=>({id,...it})).sort((a,b)=>(b.time||0)-(a.time||0));
+          items.forEach(it=> grid.appendChild(polaroidNode(it)));
+        });
+        // Clear Photos
+        $('clearPhotosBtn').addEventListener('click',()=>{
+          if(confirm('Delete ALL photos?')) db.ref(PATH.gallery).set(null);
+        });
 
         // QUESTIONS
         function renderQsList(key, containerId){ db.ref(key).on('value',snap=>{ const c=$(containerId); c.innerHTML=''; const arr=Object.entries(snap.val()||{}).map(([id,q])=>({id,...q})).sort((a,b)=> (b.createdAt||0)-(a.createdAt||0)); arr.forEach(obj=>{ const wrap=document.createElement('div'); wrap.className='q-card'; const isV = key===PATH.qVishnu; const qB=document.createElement('div'); qB.className='bubble-q '+(isV?'vishnu-bubble':'thanya-bubble'); qB.textContent=obj.q; const aB=document.createElement('div'); aB.className='bubble-a'; aB.textContent=obj.a||''; const row=document.createElement('div'); row.style.display='flex'; row.style.gap='8px'; row.style.marginTop='6px'; const ansBtn=document.createElement('button'); ansBtn.textContent=obj.a? 'Edit Answer':'Answer'; ansBtn.className='sm-btn'; const del=document.createElement('button'); del.textContent='Delete'; del.className='sm-btn'; const like=document.createElement('button'); like.textContent=obj.liked?'❤️':'🤍'; like.className='sm-btn'; ansBtn.addEventListener('click',()=>{ const ta=document.createElement('textarea'); ta.style.width='100%'; ta.style.minHeight='60px'; ta.value=obj.a||''; const saveBtn=document.createElement('button'); saveBtn.textContent='Save'; saveBtn.className='sm-btn'; saveBtn.style.marginTop='6px'; aB.innerHTML=''; aB.appendChild(ta); aB.appendChild(saveBtn); saveBtn.addEventListener('click',()=>{ db.ref(`${key}/${obj.id}`).update({a:ta.value}); }); }); del.addEventListener('click',()=> db.ref(`${key}/${obj.id}`).remove()); like.addEventListener('click',()=> db.ref(`${key}/${obj.id}`).update({liked: !obj.liked})); row.appendChild(ansBtn); row.appendChild(like); row.appendChild(del); wrap.appendChild(qB); wrap.appendChild(aB); wrap.appendChild(row); c.appendChild(wrap); }); }); }
@@ -329,4 +338,5 @@
   </script>
 </body>
 </html>
+
 
