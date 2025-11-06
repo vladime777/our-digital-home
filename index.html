@@ -197,6 +197,7 @@
     <a href="#questions" title="Questions">💬</a>
     <a href="#notes" title="Notes">💌</a>
     <a href="#timeline" title="Timeline">🧵</a>
+    <a href="#pets" title="Future Pets">🐾</a>
   </nav>
 
   <div class="sparkles" id="sparkles"></div>
@@ -215,8 +216,8 @@
       <div class="section-title">
         <h2>✨ Always-On Love Widgets</h2>
         <div class="controls">
-          <button class="sm-btn" id="togglePetals">Blossoms 🌸</button>
-          <button class="sm-btn" id="toggleCursorHearts">Hearts 💗</button>
+          <button class="sm-btn" id="togglePetals">Toggle Blossoms 🌸</button>
+          <button class="sm-btn" id="toggleCursorHearts">Cursor Hearts 💗</button>
           <button class="sm-btn" id="toggleStars">Constellations 🌌</button>
         </div>
       </div>
@@ -304,7 +305,7 @@
         <label><input type="checkbox" id="secretNote"/> Secret</label>
         <button id="addNote" class="sm-btn">Add</button>
       </div>
-      <div id="notesList""></div>
+      <div id="notesList"></div>
     </section>
 
     <!-- TIMELINE & FIRSTS -->
@@ -336,7 +337,7 @@
       <div class="section-title">
         <h2>🐾 Future Pet Dreams</h2>
         <div class="controls">
-          <button id="clearPets" class="sm-btn">Clear All</button>
+          <!-- Clear All removed per request -->
         </div>
       </div>
       <div class="controls">
@@ -638,7 +639,6 @@
       qVishnu: 'questions/vishnu',
       qThanya: 'questions/thanya',
       notes: 'notes',
-      openWhen: 'openwhen',
       timeline: 'timeline',
       firsts: 'firsts',
       gallery: 'gallery/items',
@@ -795,11 +795,6 @@
           }
         });
 
-        // Open When letters
-        function renderOW(){ db.ref(PATH.openWhen).on('value',snap=>{ const c=$('owList'); c.innerHTML=''; const arr=Object.entries(snap.val()||{}).map(([id,o])=>({id,...o})).sort((a,b)=> (b.createdAt||0)-(a.createdAt||0)); arr.forEach(o=>{ const d=document.createElement('details'); const s=document.createElement('summary'); s.textContent=o.title; d.appendChild(s); const p=document.createElement('div'); p.style.padding='8px 0'; p.innerHTML=toHTML(o.text||''); d.appendChild(p); c.appendChild(d); }); }); }
-        $('addOW').addEventListener('click',()=>{ const title=$('owTitle').value.trim(); const text=$('owText').value.trim(); if(!title||!text) return; const id=db.ref(PATH.openWhen).push().key; db.ref(`${PATH.openWhen}/${id}`).set({id,title,text,createdAt:Date.now()}); $('owTitle').value=''; $('owText').value=''; });
-        renderOW();
-
         // Timeline & Firsts
         function renderTL(){ db.ref(PATH.timeline).on('value',snap=>{ const c=$('tlList'); c.innerHTML=''; const arr=Object.entries(snap.val()||{}).map(([id,t])=>({id,...t})).sort((a,b)=> (a.date||'').localeCompare(b.date||'')); arr.forEach(t=>{ const it=document.createElement('div'); it.className='titem'; it.innerHTML=`<strong>${toHTML(t.title||'')}</strong><div style="font-size:12px;color:#666">${t.date||''}</div><div style="margin-top:6px">${toHTML(t.note||'')}</div>`; c.appendChild(it); }); }); }
         $('addTL').addEventListener('click',()=>{ const title=$('tlTitle').value.trim(); const date=$('tlDate').value; const note=$('tlNote').value.trim(); if(!title||!date) return; const id=db.ref(PATH.timeline).push().key; db.ref(`${PATH.timeline}/${id}`).set({id,title,date,note,createdAt:Date.now()}); $('tlTitle').value=''; $('tlDate').value=''; $('tlNote').value=''; });
@@ -909,13 +904,6 @@
             
             // Add sparkle effect
             burstSparkles(50, 70);
-        });
-
-        // Clear all pets
-        $('clearPets').addEventListener('click', () => {
-            if(confirm('Are you sure you want to clear all pets from the list?')) {
-                db.ref(PATH.pets).remove();
-            }
         });
 
         // Initialize pets list
