@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Our Little Digital Home — Firebase Realtime + Storage (Scrapbook Polaroids)</title>
+  <title>Our Little Digital Home — Final (Passcode + Realtime DB)</title>
   <style>
     :root{
       --sky:#dff4ff; --peach:#ffe2d2; --pink:#ffd7e9; --cream:#fff9f2; --paper:#ffffff;
@@ -14,7 +14,7 @@
     body{font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:linear-gradient(180deg,var(--sky),var(--peach),var(--pink),var(--cream)); color:#222; overflow-x:hidden}
 
     /* Loader */
-    #loader{position:fixed; inset:0; background:linear-gradient(180deg,var(--sky),var(--peach),var(--pink),var(--cream)); display:flex; align-items:center; justify-content:center; z-index:9999}
+    #loader{position:fixed; inset:0; background:linear-gradient(180deg,var(--sky),var(--peach),var(--pink),var(--cream)); display:flex; align-items:center; justify-content:center; z-index:9990}
     @keyframes pulseHeart{0%{transform:scale(1)}50%{transform:scale(1.25)}100%{transform:scale(1)}}
     .heart{width:84px; height:84px; background:pink; position:relative; transform:rotate(-45deg); animation:pulseHeart 1.1s infinite}
     .heart:before,.heart:after{content:""; position:absolute; background:pink; width:84px; height:84px; border-radius:50%}
@@ -22,6 +22,15 @@
     .heart:after{left:42px}
     .fade-out{animation: fadeOut 0.8s ease forwards}
     @keyframes fadeOut{to{opacity:0; visibility:hidden}}
+
+    /* Lock Screen */
+    #lockScreen{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:9999; background:linear-gradient(180deg,var(--pink),var(--peach),var(--sky))}
+    .lock-card{background:rgba(255,255,255,0.7); padding:26px 28px; border-radius:18px; box-shadow:0 10px 28px rgba(0,0,0,0.12); backdrop-filter:blur(10px); text-align:center}
+    .lock-card h2{margin-bottom:8px}
+    .lock-card input{padding:10px 12px; border-radius:10px; border:1px solid #ccc; font-size:18px; text-align:center; width:160px}
+    .lock-card button{margin-top:12px; background:linear-gradient(90deg,var(--sky),var(--pink)); border:none; padding:10px 16px; border-radius:12px; font-weight:600; cursor:pointer}
+    .shake{animation:shake .4s}
+    @keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-8px)}40%,60%{transform:translateX(8px)}}
 
     /* Floating Nav */
     #floatNav{position:fixed; top:14px; right:14px; z-index:998; backdrop-filter:blur(10px); background:rgba(255,255,255,0.6); padding:8px 10px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.1); display:flex; flex-direction:column; gap:6px}
@@ -78,13 +87,27 @@
 
     footer{padding:18px; text-align:center; color:var(--muted); font-size:13px}
   </style>
+  <!-- Firebase compat SDKs for simplicity in single-file deployment -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
   <!-- Loader -->
   <div id="loader"><div class="heart"></div></div>
 
+  <!-- PASSCODE OVERLAY -->
+  <div id="lockScreen">
+    <div class="lock-card" id="lockCard">
+      <h2>Enter Passcode 💖</h2>
+      <input type="password" id="passInput" maxlength="6" placeholder="••••••" />
+      <div><button id="unlockBtn">Unlock</button></div>
+      <div style="font-size:12px;color:#666;margin-top:8px">Tip: share only with Thanya 💝</div>
+    </div>
+  </div>
+
   <!-- Floating Nav -->
-  <nav id="floatNav" aria-label="Quick navigation">
+  <nav id="floatNav" aria-label="Quick navigation" style="display:none">
     <a href="#dates" title="Dates">🗓️</a>
     <a href="#bucket" title="Bucket List">🪣</a>
     <a href="#gallery" title="Gallery">📸</a>
@@ -125,7 +148,7 @@
       <div class="bucket-list" id="bucketList"></div>
     </section>
 
-    <!-- GALLERY (Firebase Storage + Polaroids) -->
+    <!-- GALLERY (Realtime DB base64 + Polaroids) -->
     <section id="gallery">
       <div class="section-title"><h2>📸 Scrapbook Polaroids</h2></div>
       <div class="controls">
@@ -136,9 +159,6 @@
           <option value="Thanya">Thanya</option>
         </select>
         <button id="uploadBtn" class="sm-btn">Upload</button>
-      </div>
-      <div id="authBanner" style="display:none; font-size:13px; color:#8a2a2a; background:rgba(255,0,0,.06); border:1px solid rgba(255,0,0,.2); padding:8px 10px; border-radius:8px;">
-        ⚠️ Sign-in couldn’t start. You can view everything, but uploads/changes are disabled on this device. See console for how to fix (Authorized domains & enable Anonymous sign-in).
       </div>
       <div class="photo-grid" id="photoGrid"></div>
     </section>
@@ -175,58 +195,32 @@
   </main>
 
   <div class="music-toggle" id="musicToggle" title="Play / Pause music">🎵</div>
-  <footer>Made with 💖 for Thanya & Vishnukeerthy — Firebase realtime • Storage • Polaroids</footer>
+  <footer>Made with 💖 for Thanya & Vishnukeerthy — Passcode • Realtime DB • Polaroids</footer>
 
-  <!-- Firebase (modular SDK via CDN) -->
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
-    import { getDatabase, ref, onValue, set, push, update, remove } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js';
-    import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
-    import { getStorage, ref as sref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js';
+  <script>
+    // ====== Constants ======
+    const PASSCODE = "120625"; // Change this anytime
 
-    // ====== Config from you (fixed: storageBucket & appId) ======
+    // ====== Utility helpers ======
+    const $ = (id) => document.getElementById(id);
+    const toHTML = (text='') => text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/
+/g,'<br>');
+    function hideLoader(){ const ld = $('loader'); if(!ld) return; ld.classList.add('fade-out'); ld.addEventListener('animationend', ()=> ld.remove()); }
+    setTimeout(hideLoader, 1200);
+    function burstSparkles(xPct,yPct){ const c = $('sparkles'); for(let i=0;i<16;i++){ const s = document.createElement('div'); s.className='spark'; s.style.left=(xPct+(Math.random()*8-4))+'%'; s.style.top=(yPct+(Math.random()*6-3))+'%'; s.style.background=['#FFD1BF','#FFC0D6','#BFE9FF','#FFF7EE'][Math.floor(Math.random()*4)]; c.appendChild(s); const dur=900+Math.random()*700; s.animate([{transform:'translateY(0) scale(1)',opacity:1},{transform:'translateY(-60px) scale(.6)',opacity:0}],{duration:dur,easing:'cubic-bezier(.2,.7,.2,1)'}); setTimeout(()=>s.remove(), dur+40);} }
+
+    // ====== Firebase config (compat) ======
     const firebaseConfig = {
       apiKey: "AIzaSyAH-tY0cqZ38nzTl9Z5VBeLU739v8O3XCA",
       authDomain: "our-digital-home.firebaseapp.com",
       databaseURL: "https://our-digital-home-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "our-digital-home",
-      storageBucket: "our-digital-home.appspot.com", // ✅ correct Storage bucket domain
+      storageBucket: "our-digital-home.appspot.com",
       messagingSenderId: "381695438861",
-      appId: "1:381695438861:web:5759fcbb1bb5cbb152e544" // ✅ revert to your original appId
+      appId: "1:381695438861:web:5759fcbb1bb5cbb152e544"
     };
 
-    // ====== App init + anon auth ======
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const auth = getAuth(app);
-    const storage = getStorage(app);
-
-    // Try anonymous auth; if it fails due to config, gracefully degrade to read-only
-    let currentUser = null;
-    try {
-      await signInAnonymously(auth);
-    } catch (err) {
-      console.warn('Anonymous sign-in failed:', err);
-      // Show banner with tips
-      const b = document.getElementById('authBanner'); if (b) b.style.display = 'block';
-      // Common fixes printed to console for you
-      console.info('\nIf you see auth/configuration-not-found or unauthorized-domain, do this:\n1) Firebase Console → Authentication → Get Started → Enable Anonymous.\n2) Firebase Console → Authentication → Settings → Authorized domains → Add your site domain (e.g., username.github.io).\n');
-      // Proceed without a user (read-only safeguards below)
-    }
-
-    onAuthStateChanged(auth, (user) => {
-      if (user) currentUser = user; // may be null if auth failed
-      initApp(currentUser);
-    });
-
-    // ====== Helpers ======
-    const $ = (id) => document.getElementById(id);
-    const toHTML = (text='') => text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-    function hideLoader(){ const ld = $('loader'); if(!ld) return; ld.classList.add('fade-out'); ld.addEventListener('animationend', ()=> ld.remove()); }
-    setTimeout(hideLoader, 1200);
-    function burstSparkles(xPct,yPct){ const c = $('sparkles'); for(let i=0;i<16;i++){ const s = document.createElement('div'); s.className='spark'; s.style.left=(xPct+(Math.random()*8-4))+'%'; s.style.top=(yPct+(Math.random()*6-3))+'%'; s.style.background=['#FFD1BF','#FFC0D6','#BFE9FF','#FFF7EE'][Math.floor(Math.random()*4)]; c.appendChild(s); const dur=900+Math.random()*700; s.animate([{transform:'translateY(0) scale(1)',opacity:1},{transform:'translateY(-60px) scale(.6)',opacity:0}],{duration:dur,easing:'cubic-bezier(.2,.7,.2,1)'}); setTimeout(()=>s.remove(), dur+40);} }
-
-    // ====== Firebase paths (feature-organized) ======
+    // ====== Firebase paths ======
     const PATH = {
       events: 'events',
       bucketItems: 'bucket/items',
@@ -237,202 +231,96 @@
       gallery: 'gallery/items'
     };
 
-    // Utility to gate writes when user is missing (read-only mode)
-    function requireUser(){
-      if(!currentUser){ alert('Sign-in is required for this action. Check the red banner above for how to enable it.'); return false; }
-      return true;
-    }
-
-    // ====== DATES ======
-    function startCountdown(el, iso){
-      function up(){ const now=new Date(); const t=new Date(iso+'T00:00:00'); const d=t-now; if(d<=0){ el.textContent='Happening now or passed!'; return; } const days=Math.floor(d/86400000); const hrs=Math.floor((d%86400000)/3600000); const mins=Math.floor((d%3600000)/60000); const secs=Math.floor((d%60000)/1000); el.textContent=`${days}d ${hrs}h ${mins}m ${secs}s`; }
-      up(); return setInterval(up,1000);
-    }
-    function renderEventsUI(map){
-      const grid = $('datesGrid'); grid.innerHTML='';
-      const arr = Object.entries(map||{}).map(([id,e]) => ({id,...e})).sort((a,b)=> (a.date||'').localeCompare(b.date||''));
-      arr.forEach((e)=>{
-        const card = document.createElement('div'); card.className='date-card';
-        card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${toHTML(e.name||'Untitled')}</strong><div class="date-meta" style="font-size:13px;color:#666">${e.date||''}</div></div><button class="sm-btn" data-id="${e.id}" data-act="rm">❌</button></div><div class="date-count" id="count_${e.id}">...</div>`;
-        grid.appendChild(card);
-        const el = $('count_'+e.id);
-        if(el && e.date) startCountdown(el, e.date);
-      });
-    }
-    $('addEvent').addEventListener('click', async ()=>{
-      if(!requireUser()) return;
-      const name=$('evName').value.trim(); const date=$('evDate').value; if(!name||!date) return alert('Please add both name and date');
-      const id = push(ref(db, PATH.events)).key;
-      await set(ref(db, `${PATH.events}/${id}`), {id, name, date, createdAt: Date.now()});
-      $('evName').value=''; $('evDate').value='';
+    // ====== Passcode gate ======
+    $('unlockBtn').addEventListener('click', ()=>{
+      const val = $('passInput').value.trim();
+      const card = $('lockCard');
+      if(val===PASSCODE){
+        $('lockScreen').style.display='none';
+        document.getElementById('floatNav').style.display='flex';
+        initFirebaseAndApp();
+      }else{
+        card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+      }
     });
-    $('clearEvents').addEventListener('click', async ()=>{ if(!requireUser()) return; if(confirm('Clear all saved events?')) await set(ref(db, PATH.events), null); });
-    $('datesGrid').addEventListener('click', async (e)=>{ const btn=e.target.closest('button[data-act="rm"]'); if(!btn) return; if(!requireUser()) return; const id=btn.dataset.id; await remove(ref(db, `${PATH.events}/${id}`)); });
-    onValue(ref(db, PATH.events), snap=>{ const data=snap.val()||{}; if(Object.keys(data).length===0){ const id = push(ref(db, PATH.events)).key; set(ref(db, `${PATH.events}/${id}`), {id, name:'Our Anniversary 💞', date:'2026-02-14', createdAt: Date.now()}); } else { renderEventsUI(data); } });
 
-    // ====== BUCKET LIST ======
-    function renderBucketUI(itemsMap, stateMap){
-      const c=$('bucketList'); c.innerHTML='';
-      const arr = Object.entries(itemsMap||{}).map(([id,it])=>({id,...it}));
-      arr.forEach(it=>{
-        const div=document.createElement('div'); div.className='bucket-item';
-        const checked = !!(stateMap && stateMap[it.id]);
-        div.innerHTML = `<div style="font-size:22px">${it.emoji||'✨'}</div><label style="display:flex;align-items:center;gap:10px;flex:1"><input type="checkbox" data-id="${it.id}" ${checked?'checked':''}><div><strong>${toHTML(it.text||'')}</strong><div style="font-size:12px;color:#666">Click to mark done</div></div></label>`;
-        c.appendChild(div);
-      });
-      c.querySelectorAll('input[type=checkbox]').forEach(cb=>{
-        cb.addEventListener('change', async (e)=>{ if(!requireUser()){ e.target.checked = !e.target.checked; return; } const id=e.target.dataset.id; const checked=e.target.checked; await update(ref(db, PATH.bucketState), {[id]: checked}); if(checked) burstSparkles(50,40); });
-      });
-    }
-    $('addBucket').addEventListener('click', async ()=>{ if(!requireUser()) return; const inp=$('newBucket'); const val=inp.value.trim(); if(!val) return; const id = push(ref(db, PATH.bucketItems)).key; await set(ref(db, `${PATH.bucketItems}/${id}`), {id, emoji:'✨', text: val, createdAt: Date.now()}); inp.value=''; });
-    onValue(ref(db, PATH.bucketItems), snap=>{ const items = snap.val(); if(!items){ const defaults = [{emoji:'🐠', text:'Aquarium date'},{emoji:'🍳', text:'Make food together'},{emoji:'🏺', text:'Pottery date'},{emoji:'🐈', text:'Get a Bengal cat'}]; defaults.forEach(async d=>{ const id=push(ref(db, PATH.bucketItems)).key; await set(ref(db, `${PATH.bucketItems}/${id}`), {id, ...d, createdAt: Date.now()}); }); } });
-    onValue(ref(db, PATH.bucketItems), itemsSnap=>{ const items = itemsSnap.val()||{}; onValue(ref(db, PATH.bucketState), stateSnap=>{ renderBucketUI(items, stateSnap.val()||{}); }); });
-
-    // ====== GALLERY (Firebase Storage + Realtime DB) ======
-    function randomBetween(a,b){ return a + Math.random()*(b-a); }
-    function polaroidNode(item, uid){
-      const wrap=document.createElement('div'); wrap.className='polaroid';
-      const rot = randomBetween(-6,6).toFixed(2)+'deg';
-      wrap.style.setProperty('--rot', rot);
-      // random tape positions
-      const tapes=[{x:14,y:-8,r:-8},{x:60,y:-10,r:8},{x:40,y:-10,r:2}];
-      tapes.forEach((t)=>{ const tp=document.createElement('div'); tp.className='tape'; tp.style.left=t.x+'px'; tp.style.top=t.y+'px'; tp.style.setProperty('--trot', t.r+'deg'); wrap.appendChild(tp); });
-      // random stickers
-      const stickers=['✨','💘','⭐','💖','🌸','🩷','💫'];
-      const sk=document.createElement('div'); sk.className='sticker'; sk.textContent=stickers[Math.floor(Math.random()*stickers.length)]; sk.style.left=randomBetween(8,70)+'%'; sk.style.top=randomBetween(6,20)+'%'; wrap.appendChild(sk);
-
-      const imgw=document.createElement('div'); imgw.className='imgwrap'; const img=new Image(); img.src=item.url; img.alt=item.caption||'Our photo'; imgw.appendChild(img); wrap.appendChild(imgw);
-      const cap=document.createElement('div'); cap.className='caption'; cap.textContent=item.caption||''; wrap.appendChild(cap);
-
-      const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${item.author||''} • ${new Date(item.createdAt||Date.now()).toLocaleDateString()}`; wrap.appendChild(meta);
-
-      const actions=document.createElement('div'); actions.className='actions';
-      // Allow delete only to uploader
-      if(uid && item.uploaderUID===uid){ const del=document.createElement('button'); del.className='sm-btn'; del.textContent='Delete'; del.addEventListener('click', async ()=>{ if(!confirm('Delete this photo?')) return; try{ await deleteObject(sref(storage, item.storagePath)); await remove(ref(db, `${PATH.gallery}/${item.id}`)); }catch(err){ alert('Delete failed'); console.error(err); } }); actions.appendChild(del); }
-      wrap.appendChild(actions);
-
-      // subtle entry animation
-      wrap.style.opacity='0'; wrap.style.transform=`rotate(${rot}) scale(.98)`;
-      requestAnimationFrame(()=>{ wrap.style.transition='transform .35s ease, opacity .35s ease, box-shadow .35s ease'; wrap.style.opacity='1'; wrap.style.transform=`rotate(${rot}) scale(1)`; });
-
-      return wrap;
-    }
-
-    async function handleUpload(){
-      if(!requireUser()) return;
-      const file=$('photoFile').files[0]; if(!file) return alert('Pick a photo first');
-      const caption=$('photoCaption').value.trim(); const author=$('photoAuthor').value || 'Vishnu';
-      const id=push(ref(db, PATH.gallery)).key;
-      const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
-      const path = `gallery/${id}.${ext}`;
-      try{
-        await uploadBytes(sref(storage, path), file);
-        const url = await getDownloadURL(sref(storage, path));
-        await set(ref(db, `${PATH.gallery}/${id}`), { id, url, caption, author, storagePath: path, uploaderUID: currentUser.uid, createdAt: Date.now() });
-        $('photoFile').value=''; $('photoCaption').value='';
-      }catch(err){ console.error(err); alert('Upload failed. Check console.'); }
-    }
-
-    function initGallery(){
-      $('uploadBtn').addEventListener('click', handleUpload);
-      onValue(ref(db, PATH.gallery), (snap)=>{
-        const grid=$('photoGrid'); grid.innerHTML='';
-        const items = Object.entries(snap.val()||{}).map(([id,it])=>({id,...it})).sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
-        items.forEach(item=> grid.appendChild(polaroidNode(item, currentUser?.uid)) );
-      });
-    }
-
-    // ====== QUESTIONS ======
-    function renderQsList(key, containerId){
-      onValue(ref(db, key), snap=>{
-        const c=$(containerId); c.innerHTML='';
-        const arr = Object.entries(snap.val()||{}).map(([id,q])=>({id,...q})).sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
-        arr.forEach((obj)=>{
-          const wrap=document.createElement('div'); wrap.className='q-card';
-          const isV = key===PATH.qVishnu;
-          const qB=document.createElement('div'); qB.className='bubble-q '+(isV?'vishnu-bubble':'thanya-bubble'); qB.textContent=obj.q;
-          const aB=document.createElement('div'); aB.className='bubble-a'; aB.textContent=obj.a||'';
-          const row=document.createElement('div'); row.style.display='flex'; row.style.gap='8px'; row.style.marginTop='6px';
-          const ansBtn=document.createElement('button'); ansBtn.textContent=obj.a? 'Edit Answer':'Answer'; ansBtn.className='sm-btn';
-          const del=document.createElement('button'); del.textContent='Delete'; del.className='sm-btn';
-          const like=document.createElement('button'); like.textContent=obj.liked?'❤️':'🤍'; like.className='sm-btn';
-          ansBtn.addEventListener('click',()=>{ if(!requireUser()) return; const ta=document.createElement('textarea'); ta.style.width='100%'; ta.style.minHeight='60px'; ta.value=obj.a||''; const saveBtn=document.createElement('button'); saveBtn.textContent='Save'; saveBtn.className='sm-btn'; saveBtn.style.marginTop='6px'; aB.innerHTML=''; aB.appendChild(ta); aB.appendChild(saveBtn); saveBtn.addEventListener('click', async ()=>{ await update(ref(db, `${key}/${obj.id}`), {a: ta.value}); }); });
-          del.addEventListener('click', async ()=>{ if(!requireUser()) return; await remove(ref(db, `${key}/${obj.id}`)); });
-          like.addEventListener('click', async ()=>{ if(!requireUser()) return; await update(ref(db, `${key}/${obj.id}`), {liked: !obj.liked}); });
-          row.appendChild(ansBtn); row.appendChild(like); row.appendChild(del);
-          wrap.appendChild(qB); wrap.appendChild(aB); wrap.appendChild(row); c.appendChild(wrap);
-        });
-      });
-    }
-    $('addVishnu').addEventListener('click', async ()=>{ if(!requireUser()) return; const val=$('vishnuNew').value.trim(); if(!val) return; const id=push(ref(db, PATH.qVishnu)).key; await set(ref(db, `${PATH.qVishnu}/${id}`), {id, q: val, a: '', liked:false, createdAt: Date.now()}); $('vishnuNew').value=''; });
-    $('addThanya').addEventListener('click', async ()=>{ if(!requireUser()) return; const val=$('thanyaNew').value.trim(); if(!val) return; const id=push(ref(db, PATH.qThanya)).key; await set(ref(db, `${PATH.qThanya}/${id}`), {id, q: val, a: '', liked:false, createdAt: Date.now()}); $('thanyaNew').value=''; });
-
-    // ====== LOVE NOTES ======
-    function renderNotes(){
-      onValue(ref(db, PATH.notes), snap=>{
-        const list=$('notesList'); list.innerHTML='';
-        const arr = Object.entries(snap.val()||{}).map(([id,n])=>({id,...n}));
-        arr.sort((a,b)=> (b.pinned===true?1:0)-(a.pinned===true?1:0) || (b.createdAt||0)-(a.createdAt||0));
-        arr.forEach((n)=>{
-          const card=document.createElement('div');
-          const bg = n.author === 'Vishnu' ? 'rgba(255,209,230,0.9)' : 'rgba(207,239,255,0.9)';
-          Object.assign(card.style,{background:bg,padding:'12px',borderRadius:'16px',marginBottom:'10px',boxShadow:'0 4px 12px rgba(0,0,0,0.08)',position:'relative',transition:'0.3s ease'});
-          card.onmouseenter=()=>{ card.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'; };
-          card.onmouseleave=()=>{ card.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; };
-          const safeText=toHTML(n.text||'');
-          card.innerHTML = `
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
-              <div style="font-size:20px">${n.author==='Vishnu'?'🩷':'💙'}</div>
-              <strong>${n.author||''}</strong>
-              <span style="font-size:12px; color:#555">• ${new Date(n.createdAt||Date.now()).toLocaleString()}</span>
-            </div>
-            <div style="margin:4px 0 8px; white-space:pre-wrap">${safeText}</div>
-            <div class="note-actions" style="display:flex;gap:8px;margin-top:6px; flex-wrap:wrap">
-              <button class="sm-btn" data-act="pin" data-id="${n.id}">${n.pinned? '📌 Pinned':'📍 Pin'}</button>
-              <button class="sm-btn" data-act="like" data-id="${n.id}">${n.liked?'❤️':'🤍'}</button>
-              <button class="sm-btn" data-act="del" data-id="${n.id}">Delete</button>
-            </div>`;
-          card.style.opacity=0; card.style.transform='translateY(10px)'; list.appendChild(card);
-          requestAnimationFrame(()=>{ card.style.transition='0.4s ease'; card.style.opacity=1; card.style.transform='translateY(0)'; });
-        });
-      });
-    }
-    $('addNote').addEventListener('click', async ()=>{ if(!requireUser()) return; const author=$('noteAuthor').value; const text=$('newNoteText').value.trim(); if(!text) return; const id=push(ref(db, PATH.notes)).key; await set(ref(db, `${PATH.notes}/${id}`), {id, author, text, liked:false, pinned:false, createdAt: Date.now()}); $('newNoteText').value=''; });
-    $('notesList').addEventListener('click', async (e)=>{ const btn=e.target.closest('button[data-act]'); if(!btn) return; if(!requireUser()) return; const act=btn.dataset.act; const id=btn.dataset.id; const r=ref(db, `${PATH.notes}/${id}`); if(act==='del'){ await remove(r); return; } onValue(r, async (snap)=>{ const cur=snap.val(); if(!cur) return; if(act==='like'){ await update(r, {liked: !cur.liked}); } if(act==='pin'){ await update(r, {pinned: !cur.pinned}); } }, {onlyOnce:true}); });
-
-    // ====== Music (WebAudio) ======
+    // ====== Music ======
     let audioCtx=null, masterGain=null, osc1=null, playing=false;
     function startMusic(){ if(playing) return; audioCtx=new (window.AudioContext||window.webkitAudioContext)(); masterGain=audioCtx.createGain(); masterGain.gain.value=0.05; masterGain.connect(audioCtx.destination); osc1=audioCtx.createOscillator(); osc1.type='sine'; osc1.frequency.value=220; const osc2=audioCtx.createOscillator(); osc2.type='triangle'; osc2.frequency.value=330; const g2=audioCtx.createGain(); g2.gain.value=0.12; osc1.connect(masterGain); osc2.connect(g2); g2.connect(masterGain); osc1.start(); osc2.start(); playing=true; }
     function stopMusic(){ if(!playing) return; try{osc1.stop()}catch(e){} try{audioCtx.close()}catch(e){} audioCtx=null; masterGain=null; osc1=null; playing=false; }
 
-    // ====== Init App after (attempted) auth ======
-    function initApp(){
+    // ====== Firebase + App init (after passcode) ======
+    function initFirebaseAndApp(){
+      // init
+      firebase.initializeApp(firebaseConfig);
+      const auth=firebase.auth();
+      const db=firebase.database();
+      let UID=null;
+
+      // UI hooks
       $('musicToggle').addEventListener('click',()=>{ if(!playing){ startMusic(); $('musicToggle').textContent='⏸'; } else { stopMusic(); $('musicToggle').textContent='🎵'; } });
       $('enterBtn').addEventListener('click',()=>{ const main=$('mainContent'); main.style.display='block'; const top=main.offsetTop; window.scrollTo({top, behavior:'smooth'}); });
 
-      // Realtime listeners/renderers
-      initGallery();
-      renderQsList(PATH.qVishnu, 'vishnuQs');
-      renderQsList(PATH.qThanya, 'thanyaQs');
-      renderNotes();
-      // dates & bucket live already wired above
+      // auth
+      auth.signInAnonymously().then(res=>{ UID=res.user.uid; startRealtime(); }).catch(err=>{ console.error('Auth failed', err); startRealtime(/*readonly*/); });
 
+      // ====== Realtime features ======
+      function startRealtime(){
+        // DATES
+        function startCountdown(el, iso){ function up(){ const now=new Date(); const t=new Date(iso+'T00:00:00'); const d=t-now; if(d<=0){ el.textContent='Happening now or passed!'; return; } const days=Math.floor(d/86400000); const hrs=Math.floor((d%86400000)/3600000); const mins=Math.floor((d%3600000)/60000); const secs=Math.floor((d%60000)/1000); el.textContent=`${days}d ${hrs}h ${mins}m ${secs}s`; } up(); return setInterval(up,1000);}        
+        function renderEventsUI(map){ const grid=$('datesGrid'); grid.innerHTML=''; const arr=Object.entries(map||{}).map(([id,e])=>({id,...e})).sort((a,b)=>(a.date||'').localeCompare(b.date||'')); arr.forEach((e)=>{ const card=document.createElement('div'); card.className='date-card'; card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${toHTML(e.name||'Untitled')}</strong><div class="date-meta" style="font-size:13px;color:#666">${e.date||''}</div></div><button class="sm-btn" data-id="${e.id}" data-act="rm">❌</button></div><div class="date-count" id="count_${e.id}">...</div>`; grid.appendChild(card); const el=$('count_'+e.id); if(el&&e.date) startCountdown(el,e.date); }); }
+        $('addEvent').addEventListener('click',()=>{ const name=$('evName').value.trim(); const date=$('evDate').value; if(!name||!date) return alert('Please add both name and date'); const id=db.ref(PATH.events).push().key; db.ref(`${PATH.events}/${id}`).set({id,name,date,createdAt:Date.now()}); $('evName').value=''; $('evDate').value=''; });
+        $('clearEvents').addEventListener('click',()=>{ if(confirm('Clear all saved events?')) db.ref(PATH.events).set(null); });
+        $('datesGrid').addEventListener('click',(e)=>{ const btn=e.target.closest('button[data-act="rm"]'); if(!btn) return; const id=btn.dataset.id; db.ref(`${PATH.events}/${id}`).remove(); });
+        db.ref(PATH.events).on('value',snap=>{ const data=snap.val()||{}; if(Object.keys(data).length===0){ const id=db.ref(PATH.events).push().key; db.ref(`${PATH.events}/${id}`).set({id,name:'Our Anniversary 💞',date:'2026-02-14',createdAt:Date.now()}); } else { renderEventsUI(data); } });
+
+        // BUCKET
+        function renderBucketUI(itemsMap, stateMap){ const c=$('bucketList'); c.innerHTML=''; const arr=Object.entries(itemsMap||{}).map(([id,it])=>({id,...it})); arr.forEach(it=>{ const div=document.createElement('div'); div.className='bucket-item'; const checked=!!(stateMap&&stateMap[it.id]); div.innerHTML=`<div style="font-size:22px">${it.emoji||'✨'}</div><label style="display:flex;align-items:center;gap:10px;flex:1"><input type="checkbox" data-id="${it.id}" ${checked?'checked':''}><div><strong>${toHTML(it.text||'')}</strong><div style="font-size:12px;color:#666">Click to mark done</div></div></label>`; c.appendChild(div); }); c.querySelectorAll('input[type=checkbox]').forEach(cb=>{ cb.addEventListener('change',(e)=>{ const id=e.target.dataset.id; const checked=e.target.checked; db.ref(PATH.bucketState).update({[id]:checked}); if(checked) burstSparkles(50,40); }); }); }
+        $('addBucket').addEventListener('click',()=>{ const inp=$('newBucket'); const val=inp.value.trim(); if(!val) return; const id=db.ref(PATH.bucketItems).push().key; db.ref(`${PATH.bucketItems}/${id}`).set({id,emoji:'✨',text:val,createdAt:Date.now()}); inp.value=''; });
+        db.ref(PATH.bucketItems).on('value',snap=>{ const items=snap.val(); if(!items){ [{emoji:'🐠',text:'Aquarium date'},{emoji:'🍳',text:'Make food together'},{emoji:'🏺',text:'Pottery date'},{emoji:'🐈',text:'Get a Bengal cat'}].forEach(d=>{ const id=db.ref(PATH.bucketItems).push().key; db.ref(`${PATH.bucketItems}/${id}`).set({id,...d,createdAt:Date.now()}); }); } });
+        db.ref(PATH.bucketItems).on('value',itemsSnap=>{ const items=itemsSnap.val()||{}; db.ref(PATH.bucketState).on('value',stateSnap=>{ renderBucketUI(items,stateSnap.val()||{}); }); });
+
+        // GALLERY (DB base64)
+        function randomBetween(a,b){ return a + Math.random()*(b-a); }
+        function polaroidNode(item){ const wrap=document.createElement('div'); wrap.className='polaroid'; const rot=(randomBetween(-6,6).toFixed(2)+'deg'); wrap.style.setProperty('--rot',rot); // tapes
+          [{x:14,y:-8,r:-8},{x:60,y:-10,r:8},{x:40,y:-10,r:2}].forEach(t=>{ const tp=document.createElement('div'); tp.className='tape'; tp.style.left=t.x+'px'; tp.style.top=t.y+'px'; tp.style.setProperty('--trot', t.r+'deg'); wrap.appendChild(tp); }); const stickers=['✨','💘','⭐','💖','🌸','🩷','💫']; const sk=document.createElement('div'); sk.className='sticker'; sk.textContent=stickers[Math.floor(Math.random()*stickers.length)]; sk.style.left=randomBetween(8,70)+'%'; sk.style.top=randomBetween(6,20)+'%'; wrap.appendChild(sk); const imgw=document.createElement('div'); imgw.className='imgwrap'; const img=new Image(); img.src=item.data; img.alt=item.caption||'Our photo'; imgw.appendChild(img); wrap.appendChild(imgw); const cap=document.createElement('div'); cap.className='caption'; cap.textContent=item.caption||''; wrap.appendChild(cap); const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${item.author||''} • ${new Date(item.time||Date.now()).toLocaleDateString()}`; wrap.appendChild(meta); if(item.uid===UID){ const actions=document.createElement('div'); actions.className='actions'; const del=document.createElement('button'); del.className='sm-btn'; del.textContent='Delete'; del.addEventListener('click',()=>{ if(confirm('Delete this photo?')) db.ref(`${PATH.gallery}/${item.id}`).remove(); }); actions.appendChild(del); wrap.appendChild(actions);} wrap.style.opacity='0'; wrap.style.transform=`rotate(${rot}) scale(.98)`; requestAnimationFrame(()=>{ wrap.style.transition='transform .35s ease, opacity .35s ease, box-shadow .35s ease'; wrap.style.opacity='1'; wrap.style.transform=`rotate(${rot}) scale(1)`; }); return wrap; }
+        function handleUpload(){ const file=$('photoFile').files[0]; if(!file) return alert('Pick a photo'); const caption=$('photoCaption').value.trim(); const author=$('photoAuthor').value || 'Vishnu'; const reader=new FileReader(); reader.onload=()=>{ const base64=reader.result; const id=db.ref(PATH.gallery).push().key; db.ref(`${PATH.gallery}/${id}`).set({ id, data:base64, caption, author, uid:UID, time:Date.now() }); $('photoFile').value=''; $('photoCaption').value=''; }; reader.readAsDataURL(file); }
+        $('uploadBtn').addEventListener('click', handleUpload);
+        db.ref(PATH.gallery).on('value',snap=>{ const grid=$('photoGrid'); grid.innerHTML=''; const items=Object.entries(snap.val()||{}).map(([id,it])=>({id,...it})).sort((a,b)=> (b.time||0)-(a.time||0)); items.forEach(it=> grid.appendChild(polaroidNode(it))); });
+
+        // QUESTIONS
+        function renderQsList(key, containerId){ db.ref(key).on('value',snap=>{ const c=$(containerId); c.innerHTML=''; const arr=Object.entries(snap.val()||{}).map(([id,q])=>({id,...q})).sort((a,b)=> (b.createdAt||0)-(a.createdAt||0)); arr.forEach(obj=>{ const wrap=document.createElement('div'); wrap.className='q-card'; const isV = key===PATH.qVishnu; const qB=document.createElement('div'); qB.className='bubble-q '+(isV?'vishnu-bubble':'thanya-bubble'); qB.textContent=obj.q; const aB=document.createElement('div'); aB.className='bubble-a'; aB.textContent=obj.a||''; const row=document.createElement('div'); row.style.display='flex'; row.style.gap='8px'; row.style.marginTop='6px'; const ansBtn=document.createElement('button'); ansBtn.textContent=obj.a? 'Edit Answer':'Answer'; ansBtn.className='sm-btn'; const del=document.createElement('button'); del.textContent='Delete'; del.className='sm-btn'; const like=document.createElement('button'); like.textContent=obj.liked?'❤️':'🤍'; like.className='sm-btn'; ansBtn.addEventListener('click',()=>{ const ta=document.createElement('textarea'); ta.style.width='100%'; ta.style.minHeight='60px'; ta.value=obj.a||''; const saveBtn=document.createElement('button'); saveBtn.textContent='Save'; saveBtn.className='sm-btn'; saveBtn.style.marginTop='6px'; aB.innerHTML=''; aB.appendChild(ta); aB.appendChild(saveBtn); saveBtn.addEventListener('click',()=>{ db.ref(`${key}/${obj.id}`).update({a:ta.value}); }); }); del.addEventListener('click',()=> db.ref(`${key}/${obj.id}`).remove()); like.addEventListener('click',()=> db.ref(`${key}/${obj.id}`).update({liked: !obj.liked})); row.appendChild(ansBtn); row.appendChild(like); row.appendChild(del); wrap.appendChild(qB); wrap.appendChild(aB); wrap.appendChild(row); c.appendChild(wrap); }); }); }
+        $('addVishnu').addEventListener('click',()=>{ const val=$('vishnuNew').value.trim(); if(!val) return; const id=db.ref(PATH.qVishnu).push().key; db.ref(`${PATH.qVishnu}/${id}`).set({id,q:val,a:'',liked:false,createdAt:Date.now()}); $('vishnuNew').value=''; });
+        $('addThanya').addEventListener('click',()=>{ const val=$('thanyaNew').value.trim(); if(!val) return; const id=db.ref(PATH.qThanya).push().key; db.ref(`${PATH.qThanya}/${id}`).set({id,q:val,a:'',liked:false,createdAt:Date.now()}); $('thanyaNew').value=''; });
+        renderQsList(PATH.qVishnu,'vishnuQs');
+        renderQsList(PATH.qThanya,'thanyaQs');
+
+        // LOVE NOTES
+        function renderNotes(){ db.ref(PATH.notes).on('value',snap=>{ const list=$('notesList'); list.innerHTML=''; const arr=Object.entries(snap.val()||{}).map(([id,n])=>({id,...n})); arr.sort((a,b)=> (b.pinned===true?1:0)-(a.pinned===true?1:0) || (b.createdAt||0)-(a.createdAt||0)); arr.forEach(n=>{ const card=document.createElement('div'); const bg=n.author==='Vishnu'?'rgba(255,209,230,0.9)':'rgba(207,239,255,0.9)'; Object.assign(card.style,{background:bg,padding:'12px',borderRadius:'16px',marginBottom:'10px',boxShadow:'0 4px 12px rgba(0,0,0,0.08)',position:'relative',transition:'0.3s ease'}); card.onmouseenter=()=>{ card.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'; }; card.onmouseleave=()=>{ card.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; }; const safeText=toHTML(n.text||''); card.innerHTML=`<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px"><div style="font-size:20px">${n.author==='Vishnu'?'🩷':'💙'}</div><strong>${n.author||''}</strong><span style="font-size:12px; color:#555">• ${new Date(n.createdAt||Date.now()).toLocaleString()}</span></div><div style="margin:4px 0 8px; white-space:pre-wrap">${safeText}</div><div class="note-actions" style="display:flex;gap:8px;margin-top:6px; flex-wrap:wrap"><button class="sm-btn" data-act="pin" data-id="${n.id}">${n.pinned? '📌 Pinned':'📍 Pin'}</button><button class="sm-btn" data-act="like" data-id="${n.id}">${n.liked?'❤️':'🤍'}</button><button class="sm-btn" data-act="del" data-id="${n.id}">Delete</button></div>`; card.style.opacity=0; card.style.transform='translateY(10px)'; list.appendChild(card); requestAnimationFrame(()=>{ card.style.transition='0.4s ease'; card.style.opacity=1; card.style.transform='translateY(0)'; }); }); }); }
+        $('addNote').addEventListener('click',()=>{ const author=$('noteAuthor').value; const text=$('newNoteText').value.trim(); if(!text) return; const id=db.ref(PATH.notes).push().key; db.ref(`${PATH.notes}/${id}`).set({id,author,text,liked:false,pinned:false,createdAt:Date.now()}); $('newNoteText').value=''; });
+        $('notesList').addEventListener('click',(e)=>{ const btn=e.target.closest('button[data-act]'); if(!btn) return; const act=btn.dataset.act; const id=btn.dataset.id; const r=db.ref(`${PATH.notes}/${id}`); if(act==='del'){ r.remove(); return; } r.once('value',snap=>{ const cur=snap.val(); if(!cur) return; if(act==='like'){ r.update({liked: !cur.liked}); } if(act==='pin'){ r.update({pinned: !cur.pinned}); } }); });
+        renderNotes();
+
+        // show main/nav
+        $('floatNav').style.display='flex';
+        $('mainContent').style.display='block';
+      }
+
+      // Diagnostics
       selfTest();
     }
 
-    // ====== Diagnostics (adds more checks) ======
+    // ====== Diagnostics ======
     function selfTest(){
       const results=[];
-      results.push(['firebase projectId', app.options.projectId||'']);
-      results.push(['databaseURL ok', !!app.options.databaseURL]);
-      results.push(['storage connected', !!app.options.storageBucket]);
-      results.push(['authed uid', !!(currentUser&&currentUser.uid)]);
-      results.push(['datesGrid exists', !!document.getElementById('datesGrid')]);
-      results.push(['bucketList exists', !!document.getElementById('bucketList')]);
-      results.push(['photoGrid exists', !!document.getElementById('photoGrid')]);
-      results.push(['notesList exists', !!document.getElementById('notesList')]);
-      try{ const tmp = 'a\n b'.replace(/\n/g,'<br>'); results.push(['regex newline replace', tmp.includes('<br>')]); }catch{ results.push(['regex newline replace', false]); }
-      console.table(results.map(([k,v])=>({test:k, pass:!!v, value:v})));
+      results.push(['regex newline replace', (()=>{try{return 'a
+ b'.replace(/
+/g,'<br>').includes('<br>')}catch{return false}})()]);
+      results.push(['datesGrid exists', !!$('datesGrid')]);
+      results.push(['bucketList exists', !!$('bucketList')]);
+      results.push(['photoGrid exists', !!$('photoGrid')]);
+      results.push(['notesList exists', !!$('notesList')]);
+      console.table(results.map(([k,v])=>({test:k, pass:!!v})));
     }
   </script>
 </body>
