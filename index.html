@@ -181,7 +181,6 @@
 
     <!-- LOVE NOTES (Hybrid) -->
     <section id="notes">
-      <div class="section-title"><h2>💌 Love Notes</h2><small style="color:#666">Pink = Vishnu • Blue = Thanya</small></div>
       <div class="controls">
         <select id="noteAuthor">
           <option value="Vishnu">Vishnu</option>
@@ -209,7 +208,7 @@
       .replace(/\n/g,'<br>'); // ✅ correct newline regex
 
     function hideLoader(){ const ld = $('loader'); if(!ld) return; ld.classList.add('fade-out'); ld.addEventListener('animationend', ()=> ld.remove()); }
-    setTimeout(hideLoader, 1200);
+    setTimeout(hideLoader, 1800);
     function burstSparkles(xPct,yPct){ const c = $('sparkles'); for(let i=0;i<16;i++){ const s = document.createElement('div'); s.className='spark'; s.style.left=(xPct+(Math.random()*8-4))+'%'; s.style.top=(yPct+(Math.random()*6-3))+'%'; s.style.background=['#FFD1BF','#FFC0D6','#BFE9FF','#FFF7EE'][Math.floor(Math.random()*4)]; c.appendChild(s); const dur=900+Math.random()*700; s.animate([{transform:'translateY(0) scale(1)',opacity:1},{transform:'translateY(-60px) scale(.6)',opacity:0}],{duration:dur,easing:'cubic-bezier(.2,.7,.2,1)'}); setTimeout(()=>s.remove(), dur+40);} }
 
     // ====== Firebase config (compat) ======
@@ -275,7 +274,7 @@
         $('addEvent').addEventListener('click',()=>{ const name=$('evName').value.trim(); const date=$('evDate').value; if(!name||!date) return alert('Please add both name and date'); const id=db.ref(PATH.events).push().key; db.ref(`${PATH.events}/${id}`).set({id,name,date,createdAt:Date.now()}); $('evName').value=''; $('evDate').value=''; });
         $('clearEvents').addEventListener('click',()=>{ if(confirm('Clear all saved events?')) db.ref(PATH.events).set(null); });
         $('datesGrid').addEventListener('click',(e)=>{ const btn=e.target.closest('button[data-act="rm"]'); if(!btn) return; const id=btn.dataset.id; db.ref(`${PATH.events}/${id}`).remove(); });
-        db.ref(PATH.events).on('value',snap=>{ const data=snap.val()||{}; if(Object.keys(data).length===0){ const id=db.ref(PATH.events).push().key; db.ref(`${PATH.events}/${id}`).set({id,name:'Our Anniversary 💞',date:'2026-02-14',createdAt:Date.now()}); } else { renderEventsUI(data); } });
+        db.ref(PATH.events).on('value',snap=>{ const data=snap.val()||{}; if(Object.keys(data).length===0){ const id=db.ref(PATH.events).push().key; db.ref(`${PATH.events}/${id}`).set({id,name:'Our Anniversary 💞',date:'12-06-2026',createdAt:Date.now()}); } else { renderEventsUI(data); } });
 
         // BUCKET
         function renderBucketUI(itemsMap, stateMap){ const c=$('bucketList'); c.innerHTML=''; const arr=Object.entries(itemsMap||{}).map(([id,it])=>({id,...it})); arr.forEach(it=>{ const div=document.createElement('div'); div.className='bucket-item'; const checked=!!(stateMap&&stateMap[it.id]); div.innerHTML=`<div style="font-size:22px">${it.emoji||'✨'}</div><label style="display:flex;align-items:center;gap:10px;flex:1"><input type="checkbox" data-id="${it.id}" ${checked?'checked':''}><div><strong>${toHTML(it.text||'')}</strong><div style="font-size:12px;color:#666">Click to mark done</div></div></label>`; c.appendChild(div); }); c.querySelectorAll('input[type=checkbox]').forEach(cb=>{ cb.addEventListener('change',(e)=>{ const id=e.target.dataset.id; const checked=e.target.checked; db.ref(PATH.bucketState).update({[id]:checked}); if(checked) burstSparkles(50,40); }); }); }
